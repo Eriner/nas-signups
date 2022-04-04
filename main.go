@@ -34,6 +34,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -56,17 +57,21 @@ var (
 	// Cooldown ip attempts. This map keeps track of those cooldowns.
 	cooldown = make(map[string]time.Time)
 
-	// a regexp used by the application
-	re = regexp.MustCompile("[^a-z\\s]+")
+	// Finals control final question page availibility. Each only gets one load.
+	finals = make(map[string]bool)
 )
 
 const (
 	romIndex  = "embedded/index.html"
 	romRobots = "embedded/robots.txt"
+	romQ2     = "embedded/q2.html"
+	romQ3     = "embedded/q3.html"
 
 	// Oh my! A secret value in source code! Yes, but context! In reality, this is
 	// just an elaborate obfuscation. md5 would have been fine here.
-	hash = "$2a$10$RcmgQ593JW.4ZHgtJ8adXeFfrq9BJoiXlRmsmmrAxZSGF4VJXTuXy"
+	q1Hash = "$2a$10$RcmgQ593JW.4ZHgtJ8adXeFfrq9BJoiXlRmsmmrAxZSGF4VJXTuXy"
+	q2Hash = "$2a$10$jYvwjMTokNoYaEWC4NlZ/uNge9lTG3AYyIz1QuqeD0p.m0hnT3iNS"
+	q3Hash = "$2a$10$RTlpjkI0KnWTRgMMLgpyCu4Y6W4tkf7k2xR8wcsSM3PXNLzZbQ2gi"
 )
 
 func main() {
@@ -79,10 +84,22 @@ func main() {
 
 	// Chi maps HTTP methods to functions that we can define.
 	// These functions must implement the interface http.HandlerFunc.
+	r.Get("/robots.txt", robotsTxt(romRobots))
+
+	// Index / Q1
 	r.Get("/", rootHandler(romIndex))
 	r.Get("/index.html", rootHandler(romIndex))
-	r.Get("/robots.txt", robotsTxt(romRobots))
-	r.Post("/submit", submitHandler(indexURL, redirURL, []byte(hash)))
+	r.Post("/submit", submitHandler("/q2.html", []byte(q1Hash)))
+
+	// Q2
+	r.Get("/q2.html", q2Handler(romQ2))
+	r.Post("/q2", q2SubmitHandler([]byte(q2Hash)))
+
+	// Q3
+	r.Route("/final", func(r chi.Router) {
+		r.Get("/{guid}.html", q3Handler(romQ3))
+		r.Post("/{guid}", q3SubmitHandler(redirURL, []byte(q3Hash)))
+	})
 
 	if err := http.ListenAndServe(":8888", r); err != nil {
 		log.Fatal(err)
@@ -119,22 +136,25 @@ func robotsTxt(file string) http.HandlerFunc {
 	}
 }
 
-func submitHandler(indexURL, registerURL string, hash []byte) http.HandlerFunc {
+func normalizeSubmission(s string) string {
+	re := regexp.MustCompile("[^a-z\\s]+")
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = re.ReplaceAllString(s, "")
+	return s
+}
+
+func submitHandler(redir string, hash []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the value from the "k" key in the HTTP POST
 		k := r.PostFormValue("k")
-		// Remove space from the outer bounds of the string
-		k = strings.TrimSpace(k)
-		// De-caps
-		k = strings.ToLower(k)
-		// remove everything that isn't a-z or a space with
-		k = re.ReplaceAllString(k, "")
+		k = normalizeSubmission(k)
 		if k == "" {
 			// if the string is empty, abort early. This isn't a real guess.
 			http.Redirect(w, r, indexURL, 302)
 			return
 		}
-		log.Printf("guess: %q\n", k)
+		log.Printf("q1 guess: %q\n", k)
 		// split string on spaces
 		sp := strings.Fields(k)
 		// The reverse-proxy MUST handle this correctly.
@@ -160,6 +180,121 @@ func submitHandler(indexURL, registerURL string, hash []byte) http.HandlerFunc {
 			return
 		}
 		// success case
-		http.Redirect(w, r, registerURL, 302)
+		http.Redirect(w, r, redir, 302)
+	}
+}
+
+func q2Handler(file string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		f := filepath.Base(file)
+		t, err := template.New(f).Funcs(template.FuncMap{
+			"noencode": func(s string) template.HTML { return template.HTML(s) },
+		}).ParseFS(romFS, file)
+		if err != nil {
+			panic("internal error: could not template " + file)
+		}
+		err = t.ExecuteTemplate(w, f, struct {
+			GUID string
+		}{
+			GUID: uuid.New().String(),
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func q2SubmitHandler(hash []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		k := r.PostFormValue("k")
+		k = normalizeSubmission(k)
+		if k == "" {
+			// if the string is empty, abort early. This isn't a real guess.
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		log.Printf("q2 guess: %q\n", k)
+		ip := r.Header.Get("X-Real-IP")
+		if time.Now().Before(cooldown[ip]) {
+			log.Println("buuusted!")
+			bcrypt.CompareHashAndPassword(hash, []byte("buzz"))
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		if err := bcrypt.CompareHashAndPassword(hash, []byte(k)); err != nil {
+			// This is an easy one, really. You should get it the first guess.
+			// If you don't, cooldown for 5 min.
+			cooldown[ip] = time.Now().Add(5 * time.Minute)
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		// success case
+		guid := uuid.New().String()
+		finals[guid+ip] = true // if this were a *real* program, this implementation would be too naive.
+		http.Redirect(w, r, "/final/"+guid+".html", 302)
+	}
+}
+
+func q3Handler(file string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		g := chi.URLParam(r, "guid")
+		guid := uuid.MustParse(g)
+		ip := r.Header.Get("X-Real-IP")
+		if !finals[guid.String()+ip] {
+			log.Println("naughty q3!")
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		f := filepath.Base(file)
+		t, err := template.New(f).Funcs(template.FuncMap{
+			"noencode": func(s string) template.HTML { return template.HTML(s) },
+		}).ParseFS(romFS, file)
+		if err != nil {
+			panic("internal error: could not template " + file)
+		}
+		err = t.ExecuteTemplate(w, f, struct {
+			GUID string
+		}{
+			GUID: guid.String(),
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func q3SubmitHandler(redirURL string, hash []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.Header.Get("X-Real-IP")
+		if time.Now().Before(cooldown[ip]) {
+			log.Println("buuusted!")
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		k := r.PostFormValue("k")
+		k = normalizeSubmission(k)
+		if k == "" {
+			// if the string is empty, abort early. This isn't a real guess.
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		log.Printf("q3 guess: %q\n", k)
+		g := chi.URLParam(r, "guid")
+		guid := uuid.MustParse(g)
+		if !finals[guid.String()+ip] {
+			log.Println("naughty q3 submission!")
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		finals[guid.String()+ip] = false // oneshot
+		if err := bcrypt.CompareHashAndPassword(hash, []byte(k)); err != nil {
+			// This is an easy one, really. You should get it the first guess.
+			// If you don't, cooldown for 5 min.
+			cooldown[ip] = time.Now().Add(5 * time.Minute)
+			http.Redirect(w, r, indexURL, 302)
+			return
+		}
+		// success case
+		http.Redirect(w, r, redirURL, 302)
 	}
 }
