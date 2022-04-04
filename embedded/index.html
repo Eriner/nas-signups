@@ -1,0 +1,25 @@
+<html>
+	<head>
+		{{ "<!-- oh wow, hackerman, are we? -->" | noencode }}
+		{{ "<!-- this is a super, super lazy app. Don't judge.-->" | noencode }}
+		{{ "<!-- code is available at github.com/eriner/nas-signups -->" | noencode }}
+	</head>
+	<body>
+		<h1>Please do not share the mastodon signup link.</h1>
+		<p>
+		Share <a href="{{ .IndexURL }}">this page</a> instead.
+			<br>
+			<br>
+			This page contains basic anti-automation measures.
+			<br>
+			<br>
+			The resulting link is good for 100 accounts. Let's see how this goes.
+		</p>
+		<br>
+		<form action="/submit" method="POST" id="form">
+				<label for="k">Our formula is this: we go out, we hit people in the </label>
+				<input id="k" name="k" type="text" autocomplete="off"></input>
+				<button>Submit</button>
+		</form>
+	</body>
+</html>
