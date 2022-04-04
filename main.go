@@ -245,6 +245,11 @@ func q3Handler(file string) http.HandlerFunc {
 			http.Redirect(w, r, indexURL, 302)
 			return
 		}
+		// one minute timer here. It shouldn't take that.
+		go func() {
+			<-time.After(1 * time.Minute)
+			finals[guid.String()+ip] = false
+		}()
 		f := filepath.Base(file)
 		t, err := template.New(f).Funcs(template.FuncMap{
 			"noencode": func(s string) template.HTML { return template.HTML(s) },
