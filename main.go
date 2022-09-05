@@ -1,14 +1,14 @@
 /*
-	This is just a simple 302 redirect gated behind an HTTP POST form.
+This is just a simple 302 redirect gated behind an HTTP POST form.
 
-	Files in ./embedded/* are embedded into the binary and templated.
+Files in ./embedded/* are embedded into the binary and templated.
 
-	Were this a typical OSS project, I wouldn't have commented a single
-	line in this program. It is entirely straightforward and easy enough
-	to understand, excluding the imported chi package.
+Were this a typical OSS project, I wouldn't have commented a single
+line in this program. It is entirely straightforward and easy enough
+to understand, excluding the imported chi package.
 
-	However, I am going to comment this file to death as a learning
-	experience for others who care.
+However, I am going to comment this file to death as a learning
+experience for others who care.
 */
 package main
 
@@ -247,7 +247,7 @@ func q3Handler(file string) http.HandlerFunc {
 		}
 		// one minute timer here. It shouldn't take that.
 		go func() {
-			<-time.After(1 * time.Minute)
+			<-time.After(2 * time.Minute)
 			finals[guid.String()+ip] = false
 		}()
 		f := filepath.Base(file)
@@ -283,6 +283,7 @@ func q3SubmitHandler(redirURL string, hash []byte) http.HandlerFunc {
 			http.Redirect(w, r, indexURL, 302)
 			return
 		}
+		k = strings.ReplaceAll(k, " ", "")
 		log.Printf("q3 guess: %q\n", k)
 		g := chi.URLParam(r, "guid")
 		guid := uuid.MustParse(g)
