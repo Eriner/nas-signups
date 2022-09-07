@@ -70,8 +70,8 @@ const (
 	// Oh my! A secret value in source code! Yes, but context! In reality, this is
 	// just an elaborate obfuscation. md5 would have been fine here.
 	q1Hash = "$2a$10$RcmgQ593JW.4ZHgtJ8adXeFfrq9BJoiXlRmsmmrAxZSGF4VJXTuXy"
-	q2Hash = "$2a$10$jYvwjMTokNoYaEWC4NlZ/uNge9lTG3AYyIz1QuqeD0p.m0hnT3iNS"
-	q3Hash = "$2a$10$RTlpjkI0KnWTRgMMLgpyCu4Y6W4tkf7k2xR8wcsSM3PXNLzZbQ2gi"
+	q2Hash = "$2a$10$1IWVW4buxGjWoUE7qdXNAOU/6mlChkPjvGnoP1addD0SDHRTU7BeK"
+	q3Hash = "$2a$10$nkGgZoyIAEPdtNrxGqcxj.oEqAS7sqGIO.8v19IpD9gebVanwGLL2"
 )
 
 func main() {
