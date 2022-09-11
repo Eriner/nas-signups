@@ -62,16 +62,16 @@ var (
 )
 
 const (
-	romIndex  = "embedded/index.html"
-	romRobots = "embedded/robots.txt"
-	romQ2     = "embedded/q2.html"
-	romQ3     = "embedded/q3.html"
+	romIndex  = `embedded/index.html`
+	romRobots = `embedded/robots.txt`
+	romQ2     = `embedded/q2.html`
+	romQ3     = `embedded/q3.html`
 
 	// Oh my! A secret value in source code! Yes, but context! In reality, this is
 	// just an elaborate obfuscation. md5 would have been fine here.
-	q1Hash = "$2a$10$RcmgQ593JW.4ZHgtJ8adXeFfrq9BJoiXlRmsmmrAxZSGF4VJXTuXy"
-	q2Hash = "$2a$10$1IWVW4buxGjWoUE7qdXNAOU/6mlChkPjvGnoP1addD0SDHRTU7BeK"
-	q3Hash = "$2a$10$nkGgZoyIAEPdtNrxGqcxj.oEqAS7sqGIO.8v19IpD9gebVanwGLL2"
+	q1Hash = `$2a$10$RcmgQ593JW.4ZHgtJ8adXeFfrq9BJoiXlRmsmmrAxZSGF4VJXTuXy`
+	q2Hash = `$2a$10$eUbFRUnXMmwuRmoaYHDVKuPxRtXvd0ZG6ORz5buRuYY0AHmaVGbAi`
+	q3Hash = `$2a$10$MHqC28GXMknT.EmHhAt7WOVFssNoljin00O.GaQutzK1pLw1HT0ES`
 )
 
 func main() {
@@ -137,10 +137,9 @@ func robotsTxt(file string) http.HandlerFunc {
 }
 
 func normalizeSubmission(s string) string {
-	re := regexp.MustCompile("[^a-z\\s]+")
 	s = strings.TrimSpace(s)
 	s = strings.ToLower(s)
-	s = re.ReplaceAllString(s, "")
+	s = regexp.MustCompile("[^a-z\\s]+").ReplaceAllString(s, "")
 	return s
 }
 
@@ -207,7 +206,7 @@ func q2Handler(file string) http.HandlerFunc {
 func q2SubmitHandler(hash []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		k := r.PostFormValue("k")
-		// k = normalizeSubmission(k)
+		k = normalizeSubmission(k)
 		if k == "" {
 			// if the string is empty, abort early. This isn't a real guess.
 			http.Redirect(w, r, indexURL, 302)
