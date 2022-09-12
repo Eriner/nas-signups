@@ -120,7 +120,21 @@ func rootHandler(file string) http.HandlerFunc {
 			// to handle recoveries.
 			panic("internal error: could not template " + file)
 		}
-		err = t.ExecuteTemplate(w, f, struct{ IndexURL string }{IndexURL: indexURL})
+		lockout := false
+		lockoutTimeRemaining := ""
+		ip := r.Header.Get("X-Real-IP")
+		now := time.Now()
+		if now.Before(cooldown[ip]) {
+			lockout = true
+			lockoutTimeRemaining = ""
+			duration := cooldown[ip].Sub(now)
+			lockoutTimeRemaining = duration.String()
+		}
+		err = t.ExecuteTemplate(w, f, struct {
+			IndexURL             string
+			Lockout              bool
+			LockoutTimeRemaining string
+		}{indexURL, lockout, lockoutTimeRemaining})
 		if err != nil {
 			panic(err)
 		}

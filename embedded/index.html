@@ -17,6 +17,9 @@
 			<br>
 			<br>
 			If answered incorrectly you must wait five minutes before submitting again.
+			{{ if .LockoutTimeRemaining }}
+				<h2>WRONG! You must wait {{ .LockoutTimeRemaining }} before submitting again</h2>
+			{{ end }}
 			<br>
 			<br>
 		</p>
